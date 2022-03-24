@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
@@ -9,19 +9,18 @@ import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
+import TransitionsModal from './verticalModal';
 import {Form,FormGroup, FormControl, FormLabel} from "react-bootstrap";
 import {useAccordionButton} from 'react-bootstrap/AccordionButton';
 import FloatingLabel  from 'react-bootstrap/FloatingLabel';
 import "react-toggle/style.css";
-import Scroll from '../../../Scroll';
 import axios from 'axios';
 import { initializeApp } from 'firebase/app';
+import { add_IP_address, modal_state, new_ip_state} from '../../../../../../redux_features/fwbQuerySlice';
 import { getDatabase, ref, onValue} from "firebase/database";
 import Snackbar from '@material-ui/core/Snackbar';
 import MuiAlert from '@material-ui/lab/Alert';
-import Modal from '@material-ui/core/Modal';
-import MapIPAddress from './mapIPAddress';
-import Backdrop from '@material-ui/core/Backdrop';
+import MapIPAddress from './newIPAddress';
 import { useSpring, animated } from 'react-spring/web.cjs'; // web.cjs is required for IE 11 support
 import IpComponent from './IpCompnent';
 import {login} from '../../../../../../redux_features/authSlice';
@@ -91,10 +90,10 @@ const SubscriberDetails = (props) => {
     const subscriberdata = subdata.subscriber_data
     const auth_token = useSelector(login).payload.authentication.auth.token;
     const subscriber_name = subscriberdata['name'];
-    const subscriber_ip = subscriberdata['ip address'];
+    const subscriber_ip = subdata.subscriber_ip;
     const sub_plan = subscriberdata['attributes']['Plan'];
     const [SubscriberPlan_array, setSubscriberPlan_array] = useState([]);
-    const [subscriberAttributes, setsubscriberAttributes] = useState({})
+    const [subscriberAttributes, setsubscriberAttributes] = useState({});
     const [Sub_ip] = useState(subscriber_ip || []);
     const [SubscriberPlan, setSubscriberPlan] = useState('None')
     const [pop_array, setpop_array] = useState([]);
@@ -103,6 +102,8 @@ const SubscriberDetails = (props) => {
     const [vlanID, setvlanID] = useState("");
     const [changeLoading] = useState("Add");
     const [show, setShow] = useState(false);
+    const [openStatus, setopenStatus] = useState(false)
+    const [modalOpen, setmodalOpen] = useState(false)
     const [Decommisionshow, setDecommisionshow] = useState(false);
     const [Errorshow, setErrorshow] = useState(false);
     const [, setapiResponse] = useState("");
@@ -112,14 +113,14 @@ const SubscriberDetails = (props) => {
     const handleClose = () => setErrorshow(false);
     const handleClose_Decomm = () => setDecommisionshow(false);
     const handleShow = () => setShow(false);
-    const decommModalOpen = () => setOpen(true);
-    const decommModalClose = () => setOpen(false);
-    const mapshowClose = () => setmapshow(false);
-    const mapIPModal = (event) => {
-        setmapshow(true)
-        event.preventDefault();
-    }
-    
+    const decommModalClose = () => setmodalOpen(false);
+    const handleOpen = () => dispatch(modal_state(true))
+
+    function OpenSidebar(event){
+        dispatch(new_ip_state(true))
+       event.preventDefault()
+   }
+
     useEffect(() => {
         const Plans = ref(database, '/FWB/create_subscriber/Plan');
         const Plan = ref(database, '/FWB/subscriber_details/Plans');
@@ -142,6 +143,7 @@ const SubscriberDetails = (props) => {
             setsubscriberAttributes(data)
         })
       }, [])
+     
     function DecommissionSubscriberapi(){
         axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
         axios({
@@ -157,6 +159,7 @@ const SubscriberDetails = (props) => {
         .then(function(response){
                 setapiResponse(response.data);
                 setOpen(false)
+                dispatch(modal_state(false))
                 setDecommisionshow(true);
                 
                 
@@ -206,9 +209,9 @@ const SubscriberDetails = (props) => {
              }
          }) 
          .then(function(response){
-                 setShow(true);
-                 subscriber_ip.push(NewIPAddress)
-                 mapshowClose()
+            setopenStatus(false)
+            dispatch(add_IP_address({"current":subscriber_ip, "new ip": NewIPAddress}))
+            // mapshowClose()
                  
          }) 
          .catch(err=>{
@@ -268,44 +271,6 @@ const SubscriberDetails = (props) => {
                 Subscriber attribute successfully changed
                 </Alert>
             </Snackbar>
-
-        <Modal
-                aria-labelledby="spring-modal-title"
-                aria-describedby="spring-modal-description"
-                className="modal"
-                open={open}
-                onClose={decommModalClose}
-                closeAfterTransition
-                BackdropComponent={Backdrop}
-                BackdropProps={{
-                timeout: 500,
-                }}
-            >
-                <Fade in={open}>
-                <div className="paper">
-                    <h2 id="spring-modal-title" style={{textAlign:'center', fontFamily:'Muli', fontWeight:'bold'}}>Confirm Delete</h2>
-                    <p id="spring-modal-description" style={{fontFamily:'Muli'}}>
-                        This action cannot be undone. This will permanently delete the subscriber <mark>{subscriber_name}</mark> and remove all associations from coollink network management devices.
-                    </p>
-                    <p style={{textAlign:'center', fontFamily:'Muli', fontWeight:'bold'}}>
-                        Please type <mark>{subscriber_name}</mark> to confirm.
-                    </p>
-                    <form onSubmit={DecommissionSusbscriber}>
-                        <FormGroup controlId="subscriberName">
-                            <FormControl
-                            autoFocus
-                            type="text"
-                            value={decommmissionValidate}
-                            onChange={e => setdecommmissionValidate(e.target.value)}
-                            />
-                        </FormGroup>
-                        <Button block disabled={!validateForm()} type="submit" variant="danger">
-                            I understand. Delete subscriber
-                        </Button>
-                    </form>
-                </div>
-                </Fade>
-        </Modal>
         <div className='contentpager'>      
             <div>
             <Col className='centerdets'>  
@@ -322,8 +287,8 @@ const SubscriberDetails = (props) => {
                         <Card className="accordioncard">
                             <Card.Header>
                             <Row>
-                                <Col md={9}><div className='accordion-card-text'>IP Address</div></Col>
-                                <Col>
+                                <Col sm={9}><div className='accordion-card-text'>IP Address</div></Col>
+                                <Col sm={2}>
                                     <div className='accordion-expand'>
                                         <CustomAccordion eventKey="0"/>
                                     </div>
@@ -335,7 +300,8 @@ const SubscriberDetails = (props) => {
                             <Card.Body>
                             <div>
                                 <div className='map-ip-button'>
-                                    <MapIPAddress name="New">
+                                    <Button onClick={OpenSidebar}>New</Button>
+                                    <MapIPAddress name="New" OpenStatus={openStatus}>
                                     <div className="new-ip">
                                         <Form onSubmit={map_new_ip}>
                                             <h2 className='sidebar-title'>Map New IP Address</h2>
@@ -385,19 +351,19 @@ const SubscriberDetails = (props) => {
                                             </Col>
                                             </Row>
                                             </div>
-                                            <div className='sidebar-button-div'>
+                                            <div className='div-sidebar-button'>
                                                     <Button className='sidebar-button' block disabled={!validateForm1()} type="submit">
                                                         {changeLoading}
                                                     </Button>
                                             </div> 
                                             
                                         </Form> 
-                                        </div>
+                                    </div>
                                     </MapIPAddress>
                                 </div>
                                 <div style={{paddingTop: '20px', borderTop: '0.5vh solid ', padding:3 , left:0, marginTop: '10px', opacity: 0.06}}></div>
                                 {
-                                    Sub_ip.map((user, i) => {
+                                    subscriber_ip.map((user, i) => {
                                     return(<IpComponent key = {i} 
                                                 ip={subscriber_ip[i]}
                                                 subscriber_name = {subscriberdata['name']}
@@ -415,8 +381,8 @@ const SubscriberDetails = (props) => {
                         <Card className="accordioncard">
                             <Card.Header>
                             <Row>
-                            <Col md={9}><div className='accordion-card-text'>Subscriber Attributes</div></Col>
-                            <Col>
+                            <Col sm={9}><div className='accordion-card-text'>Subscriber Attributes</div></Col>
+                            <Col sm={2}>
                                     <div className='accordion-expand'>
                                         <CustomAccordion eventKey="0"/>
                                     </div>
@@ -429,16 +395,16 @@ const SubscriberDetails = (props) => {
                                 <Row className="">
                                     <Col>Plan</Col>
                                     <Col> 
-                                        <FormGroup controlId="pop">
-                                            <FormControl as="select"  value={SubscriberPlan}
+                                        <Form.Group controlId="pop">
+                                            <Form.Select  value={SubscriberPlan}
                                                 onChange={e => ChangeSubscriberPlan(e.target.value)}
                                                 >
                                                 <option>Suspended</option>
                                                 {SubscriberPlan_array.map((option, id) =>(
                                                     <option>{option}</option>
                                                 ))}
-                                            </FormControl>
-                                        </FormGroup>
+                                            </Form.Select>
+                                        </Form.Group>
                                     </Col>
                                 </Row>
                                <div className='attribute-display'>
@@ -469,9 +435,36 @@ const SubscriberDetails = (props) => {
                     </Row>
                     <Row className="pt4">
                         <Button style={{display:"flex",width:"100%", justifyContent:"center",fontFamily:"Muli",fontWeight:"bold", backgroundColor:"#b80202"}}
-                        onClick={decommModalOpen}>
+                        onClick={handleOpen}>
                             Decommision Subscriber</Button>
                     </Row>
+                    <TransitionsModal name="Decommission Subscriber">
+                        <div className="paper">
+                            <h2 id="spring-modal-title" style={{textAlign:'center', fontFamily:'Muli', fontWeight:'bold'}}>Confirm Delete</h2>
+                            <p id="spring-modal-description" style={{fontFamily:'Muli'}}>
+                                This action cannot be undone. This will permanently delete the subscriber <mark>{subscriber_name}</mark> and remove all associations from coollink network management devices.
+                            </p>
+                            <p style={{textAlign:'center', fontFamily:'Muli', fontWeight:'bold'}}>
+                                Please type <mark>{subscriber_name}</mark> to confirm.
+                            </p>
+                            <form onSubmit={DecommissionSusbscriber}>
+                                <FormGroup controlId="subscriberName">
+                                    <FormControl
+                                    autoFocus
+                                    type="text"
+                                    value={decommmissionValidate}
+                                    onChange={e => setdecommmissionValidate(e.target.value)}
+                                    />
+                                </FormGroup>
+                                <div className='decommission-btn'>
+                                    <Button block disabled={!validateForm()} type="submit" variant="danger">
+                                        I understand. Delete subscriber
+                                    </Button>
+                                </div>
+                                
+                            </form>
+                        </div>
+                    </TransitionsModal>
                 </div>                
                 </div>
             </Col>

@@ -59,7 +59,6 @@ function SideBar (props) {
     const isMobile = () => window.innerWidth <= 768;
     const toggleMenu = () => setexpanded(!expanded);
     const renderBurger = () => {
-        console.log("isMobile")
         return <div onClick={toggleMenu} className="burgerIcon">
             <IconBurger />
         </div>

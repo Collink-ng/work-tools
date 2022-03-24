@@ -1,12 +1,11 @@
 import React, {useState, useEffect} from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import Button from 'react-bootstrap/Button';
 import PropTypes from 'prop-types';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
 import FloatingLabel from 'react-bootstrap/FloatingLabel';
-import {FormGroup, FormControl, FormLabel} from "react-bootstrap";
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue} from "firebase/database";
 import "react-toggle/style.css";
@@ -19,6 +18,7 @@ import MapIPAddress from './mapIPAddress';
 import { useSpring, animated } from 'react-spring/web.cjs'; 
 import axios from 'axios';
 import {login} from '../../../../../../redux_features/authSlice';
+import {delete_IP_address, change_ip_state} from '../../../../../../redux_features/fwbQuerySlice';
 
 
 function Alert(props) {
@@ -88,6 +88,7 @@ onExited: PropTypes.func,
 
 
 const IpComponent = (props) => {
+    const dispatch = useDispatch()
     const {subscriber_name} = props;
     const {authen_token} = useSelector(login).payload.authentication.auth.token;
     const {ip} = props;
@@ -98,12 +99,16 @@ const IpComponent = (props) => {
     const [pop_array, setpop_array] = useState([]);
     const [Errorshow, setErrorshow] = useState(false);
     const [SubIp , setSubIp] = useState(ip);
+    const [ipChange, setipChange] = useState(false);
     const [, setapiResponse] = useState("");
     const [pop, setpop] = useState("Select POP");
     const [changeLoading, setchangeLoading] = useState("Change")
     const classes = useStyles();
+    const subdata= useSelector(state => {
+        return state.query_subscriber.query.subscriber_ip;
+      })
     const IPchangeModal = (event) => {
-        setShow(true)
+        dispatch(change_ip_state(true))
         event.preventDefault();
     }
     const firebaseConfig = {
@@ -153,11 +158,38 @@ const IpComponent = (props) => {
                  setchangeLoading("Change")
          })
      }
+
+    function UnassignIPAddress(){
+        axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*';
+        axios({
+            method: 'POST',
+            url: 'http://192.168.6.253:32598/fwb/querysubscriber/subscriberdetails/unassignip',
+            data:{
+                "name":subscriber_name,
+                "ip_subnet":SubIp
+            },
+            headers:{
+                'Authorization': 'Bearer '+ authen_token
+            }
+        }).then(function(response){
+            dispatch(delete_IP_address({'current':subdata, 'ip': SubIp}))
+        })
+        .catch(err =>{
+            setErrorshow(true)
+        })
+    }
+
     function handleSubmit(event) {
         setchangeLoading("Processing")
         ChangeSubscriberIPapi();
         event.preventDefault();
         }
+
+    const deleteIPFromSubscriber=(event) =>{
+        UnassignIPAddress()
+        event.preventDefault();
+    }
+
     function validateForm() {
         return NewIPAddress.length > 0 ;
         }
@@ -188,9 +220,15 @@ const IpComponent = (props) => {
 
         <form onSubmit={IPchangeModal}>
             <Row style={{padding:"5px"}}>
-            <Col>{SubIp}</Col>
+            <Col><div className='ip-address-text'>{SubIp}</div></Col>
             <Col style={{display:'flex', justifyContent:'flex-end'}}>
-            <MapIPAddress name='Change'>
+            <div className='sidebar-button-div'>
+                <Button onClick={IPchangeModal}>Change</Button>
+            </div>
+            <div className='sidebar-button-div'>
+                <Button variant='danger' onClick={deleteIPFromSubscriber}>Delete</Button>
+            </div>
+            <MapIPAddress>
                 <div className='new-ip'>
                     <form onSubmit={handleSubmit}>
                         <h2 className='sidebar-title'>Change IP Address</h2>
@@ -232,7 +270,7 @@ const IpComponent = (props) => {
                         </Col>
                         </Row>
                         <div className='sidebar-button-div'>
-                                <Button className='sidebar-button' block disabled={!validateForm()} type="submit">
+                                <Button block disabled={!validateForm()} type="submit">
                                     {changeLoading}
                                 </Button>
                         </div> 

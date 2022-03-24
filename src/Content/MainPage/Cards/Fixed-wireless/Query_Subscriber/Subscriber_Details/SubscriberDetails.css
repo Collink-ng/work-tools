@@ -1,5 +1,6 @@
 .contentpager{
-    opacity: 1;
+    width: calc(100% - 250px);
+
 }
 @media(max-width: 1360px){
     .contentpage{
@@ -37,12 +38,13 @@
     justify-content: center;   
   }
 .paper{
-    margin-left: 25em;
+    padding: 20px;
+    margin: 10px;
     background-color: papayawhip;
     border: '2px solid #000';
     box-shadow: 5;
     padding: (2, 4, 3);
-    width: '60%'
+    width: 600px;
   }
 .paper_map {
     display: grid;
@@ -97,13 +99,30 @@
 .sidebar-button-div{
     display: flex;
     justify-content: flex-start;
-    padding-left: 30px;
+    font-family: "Muli";
+    font-weight: bold;
+    padding-right: 8px;
+}
+.div-sidebar-button{
+    padding-left: 25px;
 }
 .sidebar-button{
-    width: 130px;
+    width: 100px;
+    font-family: "Muli";
+    font-size: 4px;
 }
 .map-ip-button{
     display: flex;
     justify-content: flex-end;
     padding-right: 7px;
+}
+.ip-address-text{
+    padding-top: 10px;
+}
+
+.decommission-btn{
+    display: flex;
+    justify-content: center;
+    padding-top: 20px;
+
 }
